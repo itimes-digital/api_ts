@@ -1,17 +1,31 @@
 import NewsService from "../services/newsService";
 import * as HttpStatus from "http-status";
+import * as redis from "redis";
+
 import Helper from "../infra/helper";
 
 class NewsController {
 
-    get(req, res) {
+    async get(_req: any, res: any) {
 
-        NewsService.get()
-            .then(news => Helper.sendResponse(res, HttpStatus.OK, news))
-            .catch(error => console.error.bind(console, `Error ${error}`));
+        let client = redis.createClient();
+
+        client.get("news", function (_err, reply) {
+            if (reply) {
+                Helper.sendResponse(res, HttpStatus.OK, JSON.parse(reply));
+            } else {
+                NewsService.get()
+                    .then(news => {
+                    client.set("news", JSON.stringify(news));
+                    client.expire("news", 20);
+                    Helper.sendResponse(res, HttpStatus.OK, news);
+                }).catch(error => console.error.bind(console, `Error ${error}`));
+             }
+        });
+
     };
 
-    getById(req, res) {
+    getById(req: { params: { id: any; }; }, res: any) {
 
         const _id = req.params.id;
 
@@ -20,26 +34,26 @@ class NewsController {
             .catch(error => console.error.bind(console, `Error ${error}`));
     };
 
-    create(req, res) {
+    create(req: { body: any; }, res: any) {
 
         let vm = req.body;
 
         NewsService.create(vm)
-            .then(news => Helper.sendResponse(res, HttpStatus.OK, "Noticia cadastrada com sucesso."))
+            .then(_news => Helper.sendResponse(res, HttpStatus.OK, "Noticia cadastrada com sucesso."))
             .catch(error => console.error.bind(console, `Error ${error}`));
     };
 
-    update(req, res) {
+    update(req: { params: { id: any; }; body: any; }, res: any) {
 
         const _id = req.params.id;
         let news = req.body;
 
         NewsService.update(_id, news)
-            .then(news => Helper.sendResponse(res, HttpStatus.OK, `Notícia foi atualizada com sucesso.`))
+            .then(_news => Helper.sendResponse(res, HttpStatus.OK, `Notícia foi atualizada com sucesso.`))
             .catch(error => console.error.bind(console, `Error ${error}`));
     };
 
-    delete(req, res) {
+    delete (req: { params: { id: any; }; }, res: any) {
 
         const _id = req.params.id;
 
